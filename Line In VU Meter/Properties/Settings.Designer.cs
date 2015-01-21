@@ -58,5 +58,17 @@ namespace Line_In_VU_Meter.Properties {
                 this["selectedDevice"] = value;
             }
         }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("0")]
+        public int multiplier {
+            get {
+                return ((int)(this["multiplier"]));
+            }
+            set {
+                this["multiplier"] = value;
+            }
+        }
     }
 }
