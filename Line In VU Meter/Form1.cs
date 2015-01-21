@@ -23,8 +23,8 @@ namespace Line_In_VU_Meter
         public Form1()
         {
             InitializeComponent();
-            enumerateDevices();
-            updateDevice();
+            enumerateDevices(); //Enumerate the Audio Devices on the system
+            updateDevice(); //Refresh the comboBox list
 
             try
             {
