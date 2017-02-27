@@ -7,86 +7,48 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-using NAudio;
-using NAudio.CoreAudioApi;
 
 namespace Line_In_VU_Meter
 {
-    public partial class Form1 : Form
+    public partial class Settings_Form : Form
     {
-        static MMDeviceEnumerator deviceEnum = new MMDeviceEnumerator();
-        MMDevice device;
-        string[,] audioDevices = new string[255,2];
-        int i;
+        Devicelist devicelist = new Devicelist();
         bool cb2fix = false;
-        static int[] multiplierValues = new int[5] { 100, 150, 200, 250, 300 };
-        
+        bool cb3fix = false;
+        public event EventHandler ForceUpdate;
 
-        public Form1()
+
+        public Settings_Form()
         {
             InitializeComponent();
-            enumerateDevices(); // Enumerate the Audio Devices on the system
-            updateDevice(); // Refresh the comboBox list
             loadSettings(); // Load the settings from Settings.settings
-
-            timer1.Start(); // Start the Level meter
         }
-
-        private void Form1_Load(object sender, EventArgs e)
-        {
-
-        }
-       
-        private void timer1_Tick(object sender, EventArgs e)
-        {
-            if (device.AudioEndpointVolume.Mute.Equals(true))
-            {
-                panel1.Visible = true;
-            }
-            else
-            {
-                panel1.Visible = false;
-                float volume = (float)device.AudioMeterInformation.MasterPeakValue * int.Parse(comboBox2.Text); 
-
-                try
-                {
-                    progressBar1.Value = (int)volume;
-                }
-                catch 
-                {
-                    progressBar1.Value = 100;
-                }
-            }
-        }
-
         private void checkBox1_CheckedChanged(object sender, EventArgs e)
         {
-            if (checkBox1.Checked == true) {
-                Properties.Settings.Default.displayConfig = true;
-                Properties.Settings.Default.Save();
-                this.Height = this.MaximumSize.Height;
-            }
-            else
-            {
-                Properties.Settings.Default.displayConfig = false;
-                Properties.Settings.Default.Save();
-                this.Height = this.MinimumSize.Height;
-            }
+            Properties.Settings.Default.savePos = checkBox1.Checked;
+            Properties.Settings.Default.Save();
         }
-
         private void checkBox2_CheckedChanged(object sender, EventArgs e)
         {
             Properties.Settings.Default.recordOnly = checkBox2.Checked;
             Properties.Settings.Default.Save();
-            enumerateDevices();
+            comboBox1.DataSource = devicelist.devices();
+            comboBox1.SelectedIndex = Properties.Settings.Default.selectedDevice;
+        }
+
+        private void checkBox3_CheckedChanged(object sender, EventArgs e)
+        {
+            Properties.Settings.Default.clickThrough = checkBox3.Checked;
+            updateTransp(EventArgs.Empty);
+            Properties.Settings.Default.Save();
         }
 
         private void comboBox1_SelectedIndexChanged(object sender, EventArgs e)
         {
             Properties.Settings.Default.selectedDevice = comboBox1.SelectedIndex;
             Properties.Settings.Default.recordOnly = checkBox2.Checked;
-            Properties.Settings.Default.Save(); 
-            updateDevice();            
+            Properties.Settings.Default.Save();
+            devicelist.updateDevice();
         }
 
         private void comboBox2_SelectedIndexChanged(object sender, EventArgs e)
@@ -96,81 +58,63 @@ namespace Line_In_VU_Meter
                 Properties.Settings.Default.multiplier = comboBox2.SelectedIndex;
                 Properties.Settings.Default.Save();
             }
-            else
+            else {cb2fix = true;}
+        }
+
+        private void comboBox3_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (cb3fix == true)
             {
-                cb2fix = true;
+                Properties.Settings.Default.transparancy = comboBox3.SelectedIndex;
+                updateTransp(EventArgs.Empty);
+                Properties.Settings.Default.Save();
             }
-            
+            else { cb3fix = true; }
         }
         
-        public void enumerateDevices()
-        {
-            comboBox1.Items.Clear();
-            i = 0;
-
-            if (Properties.Settings.Default.recordOnly == false)
-            {
-
-                foreach (MMDevice devices in deviceEnum.EnumerateAudioEndPoints(DataFlow.All, DeviceState.Active))
-                {
-                    audioDevices[i, 0] = devices.FriendlyName;
-                    audioDevices[i, 1] = devices.ID;
-                    comboBox1.Items.Add(audioDevices[i, 0].ToString());
-                    i++;
-                }
-            }
-            else
-            {
-                foreach (MMDevice devices in deviceEnum.EnumerateAudioEndPoints(DataFlow.Capture, DeviceState.Active))
-                {
-                    audioDevices[i, 0] = devices.FriendlyName;
-                    audioDevices[i, 1] = devices.ID;
-                    comboBox1.Items.Add(audioDevices[i, 0].ToString());
-                    i++;
-                }
-            }
-            
-        }
-
-        public void updateDevice()
-        {
-            try
-            {
-                device = deviceEnum.GetDevice(audioDevices[Properties.Settings.Default.selectedDevice, 1]);
-                this.Text = device.FriendlyName;
-            }
-            catch
-            {
-                Properties.Settings.Default.selectedDevice = 0;
-                if (audioDevices[0, 0] == null)
-                {
-                    MessageBox.Show("There are no devices to list!");
-                    this.Close();
-                }
-            }
-        }
-        public void loadSettings()
+        private void loadSettings()
         {
             //System.Threading.Thread.Sleep(1000);
 
             try
             {
-                comboBox2.DataSource = multiplierValues;
-                checkBox1.Checked = Properties.Settings.Default.displayConfig;
-                checkBox2.Checked = Properties.Settings.Default.recordOnly;
-                comboBox1.SelectedIndex = Properties.Settings.Default.selectedDevice;
-                comboBox2.SelectedIndex = Properties.Settings.Default.multiplier;
+                comboBox1.DataSource = devicelist.devices();
+                this.comboBox1.SelectedIndex = Properties.Settings.Default.selectedDevice;
+                this.comboBox2.SelectedIndex = Properties.Settings.Default.multiplier;
+                this.comboBox3.SelectedIndex = Properties.Settings.Default.transparancy;
             }
+
             catch
             {
                 MessageBox.Show("Something happened");
                 this.Close();
             }
+        }
 
-            if (Properties.Settings.Default.displayConfig == true)
+        protected virtual void updateTransp(EventArgs e)
+        {
+            //make sure we have someone subscribed to our event before we try to raise it
+            if (this.ForceUpdate != null)
             {
-                this.Height = this.MaximumSize.Height;
+                this.ForceUpdate(this, e);
             }
-        }    
+        }
+
+        private void focusEvent(object sender, EventArgs e)
+        {
+            this.checkBox3.Checked = global::Line_In_VU_Meter.Properties.Settings.Default.clickThrough;
+        }
+
+
+        private void button1_Click(object sender, EventArgs e)
+        {
+            Properties.Settings.Default.Location = Properties.Settings.Default.tempPos;
+            Properties.Settings.Default.Save();
+        }
+
+        private void Settings_Form_Load(object sender, EventArgs e)
+        {
+
+        }
     }
 }
